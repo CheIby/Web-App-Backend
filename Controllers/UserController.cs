@@ -180,32 +180,38 @@ namespace server.Controllers
             }
         }
 
-        [HttpDelete("[action]")]
+        [HttpDelete("[action]/{UserId}")]
         [Authorize]
-        public async Task<HttpStatusCode> DeleteUser()
+        public async Task<HttpStatusCode> DeleteUser(string UserId)
         {   
             try{
-                string authHeader = Request.Headers["Authorization"];
-                string[] lstAuthHeader = authHeader.Split(" "); 
-                var token = lstAuthHeader[1];
-                JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
-                JwtSecurityToken decodedToken = tokenHandler.ReadJwtToken(token);
-                var claims = decodedToken.Claims;
-                string UserId = claims.FirstOrDefault(c => c.Type == "UserId")?.Value;
                 if (UserId == null){
                     return HttpStatusCode.BadRequest;
                 }
                 var foundUser = await WebAppDbContext.Users.FirstOrDefaultAsync(e=>e.UserId==UserId);
-                var oldFilepath = Path.Combine(Directory.GetCurrentDirectory(),"static",foundUser.UserImg);
-                FileInfo oldFile = new FileInfo(oldFilepath);
-                oldFile.Delete();
+                if(foundUser.UserImg!="nullUser.png"){
+                    var oldFilepath = Path.Combine(Directory.GetCurrentDirectory(),"static",foundUser.UserImg);
+                    FileInfo oldFile = new FileInfo(oldFilepath);
+                    oldFile.Delete();
+                }
+                var foundUserOrder = await WebAppDbContext.Orders.Where(e=>e.UserId==UserId).ToListAsync();
+                var foundUserTakeOrder = await WebAppDbContext.Orders.Where(e=>e.ReceiverId==UserId).ToListAsync();
                 WebAppDbContext.Remove(foundUser);
                 await WebAppDbContext.SaveChangesAsync();
+                for (var i =0;i<foundUserOrder.Count();i++){
+                    var userOrder = await WebAppDbContext.Orders.FirstOrDefaultAsync(e=> e.OrderId== foundUserOrder[i].OrderId);
+                    WebAppDbContext.Remove(userOrder);
+                    await WebAppDbContext.SaveChangesAsync();
+                }
+                for (var i =0;i<foundUserTakeOrder.Count();i++){
+                    var userTakeOrder = await WebAppDbContext.Orders.FirstOrDefaultAsync(e=>e.OrderId==foundUserTakeOrder[i].OrderId);
+                    WebAppDbContext.Remove(userTakeOrder);
+                    await WebAppDbContext.SaveChangesAsync();
+                }
                 return HttpStatusCode.OK;
             }catch{
                 return HttpStatusCode.InternalServerError;
             }
-            
         }
     }
 }
