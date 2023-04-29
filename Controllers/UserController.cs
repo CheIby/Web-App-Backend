@@ -54,6 +54,7 @@ namespace server.Controllers
         }
 
         [HttpGet("[action]/{UserId}")]
+        [Authorize]
         public async Task<ActionResult<UserInfoAndPlaceDTO>> GetMyPlace(string UserId)
         {
             var List = await WebAppDbContext.Users.Select(
@@ -177,6 +178,34 @@ namespace server.Controllers
                 userInfo.Failed = User.Failed;
                 return Ok(userInfo);
             }
+        }
+
+        [HttpDelete("[action]")]
+        [Authorize]
+        public async Task<HttpStatusCode> DeleteUser()
+        {   
+            try{
+                string authHeader = Request.Headers["Authorization"];
+                string[] lstAuthHeader = authHeader.Split(" "); 
+                var token = lstAuthHeader[1];
+                JwtSecurityTokenHandler tokenHandler = new JwtSecurityTokenHandler();
+                JwtSecurityToken decodedToken = tokenHandler.ReadJwtToken(token);
+                var claims = decodedToken.Claims;
+                string UserId = claims.FirstOrDefault(c => c.Type == "UserId")?.Value;
+                if (UserId == null){
+                    return HttpStatusCode.BadRequest;
+                }
+                var foundUser = await WebAppDbContext.Users.FirstOrDefaultAsync(e=>e.UserId==UserId);
+                var oldFilepath = Path.Combine(Directory.GetCurrentDirectory(),"static",foundUser.UserImg);
+                FileInfo oldFile = new FileInfo(oldFilepath);
+                oldFile.Delete();
+                WebAppDbContext.Remove(foundUser);
+                await WebAppDbContext.SaveChangesAsync();
+                return HttpStatusCode.OK;
+            }catch{
+                return HttpStatusCode.InternalServerError;
+            }
+            
         }
     }
 }

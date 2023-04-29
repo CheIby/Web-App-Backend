@@ -196,6 +196,10 @@ namespace server.Controllers
                 if(foundOrder!=null){
                     var foundUser = await WebAppDbContext.Users.FirstOrDefaultAsync(e=>e.UserId == foundOrder.ReceiverId);
                     foundUser.Failed = foundUser.Failed+1;
+                    foundUser.Score -= foundOrder.IfDoneScore;
+                    if(foundUser.Score<0){
+                        foundUser.Score = 0;
+                    }
                     WebAppDbContext.Remove(foundOrder);
                     await WebAppDbContext.SaveChangesAsync();
                     return HttpStatusCode.Accepted;
